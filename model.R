@@ -60,11 +60,10 @@ launch_shinystan(brm1)
 
 ptm<-proc.time()
 prior2<-c(prior(normal(0,10),class=b),
-          prior(normal(0,1),class=b,coef=muType2MI_M133),
-          prior(normal(1,2),class=Intercept))
-priors$prior[5]<-"exponential(1)"
+          prior(normal(1,2),class=Intercept),
+          prior(normal(0,4),class=b,coef=M27,dpar=muType1MI))
 brm2<-brm(group~.,data=metab2[,names(metab2)!="ptid"],
           family="categorical",chains=2,iter=500,algorithm="sampling",
-          prior=priors)
+          prior=prior2)
 proc.time()-ptm
 launch_shinystan(brm1)
