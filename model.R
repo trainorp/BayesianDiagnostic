@@ -60,20 +60,26 @@ launch_shinystan(brm1)
 
 ptm<-proc.time()
 prior2<-c(prior(normal(0,10),class=b),
-          prior(normal(1,2),class=Intercept),
-          prior(lasso(),class=b,coef=M108,dpar=muType1MI))
-prior2<-set_prior(lasso(df=1,scale=10))
+          prior(normal(0,2),class=Intercept))
 brm2<-brm(group~.,data=metab2[,names(metab2)!="ptid"],
-          family="categorical",chains=2,iter=500,algorithm="sampling",
-          prior=prior3)
+          family="categorical",chains=2,iter=5000,algorithm="sampling",
+          prior=prior2)
 proc.time()-ptm
-launch_shinystan(brm1)
+launch_shinystan(brm2)
+summary(brm2)
+predBrm2<-predict(brm2,newdata=metab2[,!names(metab2)%in%c("group","ptid")])
+predBrm2<-as.data.frame(predBrm2)
+pheno2<-cbind(pheno,predBrm2)
 
+########### Horseshoe prior LDA ###########
 metab3<-model.matrix(~group,data=metab2)[,2:3]
 colnames(metab3)<-c("Type1","Type2")
 metab3<-cbind(metab2[,!names(metab2)%in%c("ptid","group")],metab3)
 prior3<-set_prior(horseshoe(1))
-brm3<-brm(cbind(Type1,Type2)~.,data=metab3,
-          chains=4,iter=5000,algorithm="sampling",
-          prior=prior3)
+ptm<-proc.time()
+brm3<-brm(cbind(Type1,Type2)~.,data=metab3,chains=4,iter=10000,algorithm="sampling",
+          prior=prior3,control=list(adapt_delta=.9))
+proc.time()-ptm
 launch_shinystan(brm3)
+summary(brm3)
+predict(brm3)
