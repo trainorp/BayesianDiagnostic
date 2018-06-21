@@ -43,15 +43,15 @@ key<-key %>% arrange(as.numeric(gsub("M","",id)))
 weights<-apply(weights,1,function(x) mean(x))
 key$weights<-0
 key$weights[match(names(weights),key$id)]<-weights
-include<-key %>% filter(weights>.025)
+include<-key %>% filter(weights>.035)
 metab2<-metab[,names(metab) %in% include$id]
+rm(outs)
 
 ############ Model ############
 metab2$ptid<-rownames(metab2)
 metab2<-metab2 %>% left_join(pheno)
 
 priors<-get_prior(group~.,data=metab2[,names(metab2)!="ptid"],family="categorical")
-
 ptm<-proc.time()
 brm1<-brm(group~.,data=metab2[,names(metab2)!="ptid"],
         family="categorical",chains=2,iter=5000,algorithm="sampling")
@@ -61,9 +61,19 @@ launch_shinystan(brm1)
 ptm<-proc.time()
 prior2<-c(prior(normal(0,10),class=b),
           prior(normal(1,2),class=Intercept),
-          prior(normal(0,4),class=b,coef=M27,dpar=muType1MI))
+          prior(lasso(),class=b,coef=M108,dpar=muType1MI))
+prior2<-set_prior(lasso(df=1,scale=10))
 brm2<-brm(group~.,data=metab2[,names(metab2)!="ptid"],
           family="categorical",chains=2,iter=500,algorithm="sampling",
-          prior=prior2)
+          prior=prior3)
 proc.time()-ptm
 launch_shinystan(brm1)
+
+metab3<-model.matrix(~group,data=metab2)[,2:3]
+colnames(metab3)<-c("Type1","Type2")
+metab3<-cbind(metab2[,!names(metab2)%in%c("ptid","group")],metab3)
+prior3<-set_prior(horseshoe(1))
+brm3<-brm(cbind(Type1,Type2)~.,data=metab3,
+          chains=4,iter=5000,algorithm="sampling",
+          prior=prior3)
+launch_shinystan(brm3)
