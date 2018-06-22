@@ -84,7 +84,7 @@ levels(coefDf$Group)<-c("Thrombotic MI","Non-Thrombotic MI")
 coefDf<-coefDf %>% filter(Metabolite!="Intercept")
 coefDf$Metabolite<-key$biochemical[match(coefDf$Metabolite,key$id)]
 
-# Colors
+# Coefficient forest plot:
 png(file="brm1Coef.png",height=4.5,width=8.5,units="in",res=400)
 ggplot(data=coefDf,aes(x=Metabolite,y=Mean,ymin=`25%`,ymax=`75%`,color=Group))+
   geom_pointrange()+geom_hline(yintercept=0,lty=2)+
@@ -92,6 +92,29 @@ ggplot(data=coefDf,aes(x=Metabolite,y=Mean,ymin=`25%`,ymax=`75%`,color=Group))+
   coord_flip()+theme_bw()+ylab("Estimate")+
   scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=125),
         rgb(0,0,153,max=255,alpha=125)))
+dev.off()
+
+# MCMC chain:
+exMCMCChain<-rbind(data.frame(Value=brm1$fit@sim$samples[[1]]$b_muType1MI_M110,
+                 Iteration=1:10000,Group="Thrombotic MI"),
+      data.frame(Value=brm1$fit@sim$samples[[1]]$b_muType2MI_M110,
+                 Iteration=1:10000,Group="Non-Thrombotic MI"))
+exMCMCChain$Group<-factor(exMCMCChain$Group,levels=c("Thrombotic MI","Non-Thrombotic MI"))
+
+png(file="exMCMCChain.png",height=4,width=6,units="in",res=300)
+ggplot(exMCMCChain,aes(x=Iteration,y=Value,color=Group))+
+  geom_path()+geom_hline(yintercept=0,lty=2)+
+  scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=150),
+                                          rgb(0,0,153,max=255,alpha=150)))+
+  theme_bw()+xlim(5000,7000)+ylim(-2.5,3.5)
+dev.off()
+
+png(file="exHist.png",height=4,width=4,units="in",res=300)
+ggplot(exMCMCChain,aes(x=Value,fill=Group))+geom_density(alpha=.3)+
+  theme_bw()+ylab("Density")+
+  scale_fill_manual(values=c(rgb(255,51,51,max=255,alpha=150),
+                              rgb(0,0,153,max=255,alpha=150)))+
+  coord_flip()
 dev.off()
 
 ############ Cross-validation error ############
@@ -102,13 +125,17 @@ cvF<-data.frame(fold=cvF$which,id=cvF$subsets)
 phenoFolds<-data.frame()
 for(k in 1:nrow(metab2)){
   brmFold<-brm(group~.,data=metab2[cvF$id[cvF$fold!=k],names(metab2)!="ptid"],
-               family="categorical",chains=2,iter=5000,algorithm="sampling",
+               family="categorical",chains=4,iter=5000,algorithm="sampling",
                prior=priors,seed=k+3)
   predBrmFold<-predict(brmFold,
             newdata=metab2[cvF$id[cvF$fold==k],!names(metab2)%in%c("group","ptid")])
   phenoFold<-cbind(pheno[cvF$id[cvF$fold==k],],predBrmFold)
   phenoFolds<-rbind(phenoFolds,phenoFold)
 }
+
+names(phenoFolds)[3:5]<-c("sCAD","Type 1 MI","Type 2 MI")
+phenoFolds$Predicted<-names(phenoFolds)[3:5][apply(phenoFolds[,3:5],1,which.max)]
+xtabs(~group+Predicted,data=phenoFolds)
 
 ########### Horseshoe prior LDA ###########
 metab3<-model.matrix(~group,data=metab2)[,2:3]
