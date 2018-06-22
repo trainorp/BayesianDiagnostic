@@ -48,23 +48,51 @@ metab2<-metab[,names(metab) %in% include$id]
 rm(outs)
 
 ############ Model ############
+setwd("~/gdrive/Dissertation/Aim3")
 metab2$ptid<-rownames(metab2)
 metab2<-metab2 %>% left_join(pheno)
 
 ptm<-proc.time()
-priors<-c(prior(normal(0,5),class=b),
-          prior(normal(0,2),class=Intercept))
+priors<-c(prior(normal(0,1),class=b),
+          prior(normal(0,4),class=Intercept))
 brm1<-brm(group~.,data=metab2[,names(metab2)!="ptid"],
-          family="categorical",chains=2,iter=5000,algorithm="sampling",
-          prior=priors)
+          family="categorical",chains=4,iter=10000,algorithm="sampling",
+          prior=priors,seed=33)
 proc.time()-ptm
 
+# Summary and predicted probabilities
 summary(brm1)
 predBrm1<-predict(brm1,newdata=metab2[,!names(metab2)%in%c("group","ptid")])
 predBrm1<-as.data.frame(predBrm1)
 pheno2<-cbind(pheno,predBrm1)
 
+# Shiny stan
 launch_shinystan(brm1)
+
+# Coefficients:
+coefDf50<-as.data.frame(posterior_interval(brm1,prob=.50))
+coefDf95<-as.data.frame(posterior_interval(brm1,prob=.95))
+coefDfMean<-as.data.frame(posterior_summary(brm1))
+coefDfMean<-coefDfMean %>% select(Mean=Estimate)
+coefDf<-cbind(coefDfMean,coefDf50,coefDf95)
+coefDf$Parameter<-rownames(coefDf)
+coefDf$Metabolite<-str_split(coefDf$Parameter,"_",simplify=TRUE)[,3]
+coefDf$Group<-gsub("mu","",str_split(coefDf$Parameter,"_",simplify=TRUE)[,2])
+coefDf<-coefDf %>% filter(Metabolite!="") 
+coefDf$Group<-factor(coefDf$Group)
+levels(coefDf$Group)<-c("Thrombotic MI","Non-Thrombotic MI")
+coefDf<-coefDf %>% filter(Metabolite!="Intercept")
+coefDf$Metabolite<-key$biochemical[match(coefDf$Metabolite,key$id)]
+
+# Colors
+png(file="brm1Coef.png",height=4.5,width=8.5,units="in",res=400)
+ggplot(data=coefDf,aes(x=Metabolite,y=Mean,ymin=`25%`,ymax=`75%`,color=Group))+
+  geom_pointrange()+geom_hline(yintercept=0,lty=2)+
+  geom_errorbar(aes(ymin=`25%`,ymax=`75%`),width=0.5)+
+  coord_flip()+theme_bw()+ylab("Estimate")+
+  scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=125),
+        rgb(0,0,153,max=255,alpha=125)))
+dev.off()
 
 ############ Cross-validation error ############
 set.seed(3)
@@ -75,9 +103,9 @@ phenoFolds<-data.frame()
 for(k in 1:nrow(metab2)){
   brmFold<-brm(group~.,data=metab2[cvF$id[cvF$fold!=k],names(metab2)!="ptid"],
                family="categorical",chains=2,iter=5000,algorithm="sampling",
-               prior=priors)
+               prior=priors,seed=k+3)
   predBrmFold<-predict(brmFold,
-                       newdata=metab2[cvF$id[cvF$fold==k],!names(metab2)%in%c("group","ptid")])
+            newdata=metab2[cvF$id[cvF$fold==k],!names(metab2)%in%c("group","ptid")])
   phenoFold<-cbind(pheno[cvF$id[cvF$fold==k],],predBrmFold)
   phenoFolds<-rbind(phenoFolds,phenoFold)
 }
