@@ -117,6 +117,69 @@ ggplot(exMCMCChain,aes(x=Value,fill=Group))+geom_density(alpha=.3)+
   coord_flip()
 dev.off()
 
+############ Posterior predictive distribution ############
+brm1Coefs<-brm1$fit@sim$samples[[1]]
+brm1Coefs<-brm1Coefs[names(brm1Coefs)!="lp__"]
+
+# Get coefficients from simulated posterior
+brm1Coefs2<-data.frame()
+for(i in 1:length(brm1Coefs)){
+  x<-brm1Coefs[i]
+  brm1Coefs2<-rbind(brm1Coefs2,data.frame(Parameter=names(x),
+         iteration=1:length(x[[1]]),Estimate=x[[1]]))
+}
+
+# Posterior predictive distribution for 2010
+brm1Preds<-list()
+for(i in 1:10000){
+  brm1Samp1<-metab2[6,]
+  brm1Coefs3<-brm1Coefs2[brm1Coefs2$iteration==i,]
+  brm1Int1<-matrix(1,ncol=2)
+  colnames(brm1Int1)<-c("b_muType1MI_Intercept","b_muType2MI_Intercept")
+  brm1Samp1a<-brm1Samp1b<-brm1Samp1[!names(brm1Samp1)%in%c("ptid","group")]
+  names(brm1Samp1a)<-paste0("b_muType1MI_",names(brm1Samp1a))
+  names(brm1Samp1b)<-paste0("b_muType2MI_",names(brm1Samp1b))
+  brm1Samp1<-cbind(brm1Int1,brm1Samp1a,brm1Samp1b)
+  brm1Coefs3$x<-t(brm1Samp1[,match(brm1Coefs3$Parameter,names(brm1Samp1))])
+  brm1Coefs3$prod<-c(brm1Coefs3$x)*c(brm1Coefs3$Estimate)
+  brm1Coefs3$group<-c("Type1","Type2")[(!grepl("Type1",brm1Coefs3$Parameter))+1]
+  brm1Coefs3<-brm1Coefs3 %>% group_by(group) %>% 
+    summarise(sum=sum(prod)) %>% as.data.frame()
+  brm1Coefs3<-rbind(brm1Coefs3,data.frame(group="sCAD",sum=1))
+  brm1Pred<-data.frame(t(exp(brm1Coefs3$sum)/sum(exp(brm1Coefs3$sum))))
+  names(brm1Pred)<-c("Type1","Type2","sCAD")
+  brm1Preds[[i]]<-brm1Pred
+  print(i)
+}
+brm1Preds<-do.call("rbind",brm1Preds)
+
+# Reshape:
+brm1Preds$Iteration<-1:nrow(brm1Preds)
+brm1Preds<-brm1Preds %>% gather(key="Group",value="Probability",-Iteration)
+brm1Preds$Group<-factor(brm1Preds$Group)
+levels(brm1Preds$Group)<-c("sCAD","Thrombotic MI","Non-Thrombotic MI")
+brm1Preds$Group<-factor(brm1Preds$Group,
+        levels=levels(brm1Preds$Group)[c(2,3,1)])
+
+# PTID 2010 MCMC
+png(file="ptid2010MCMC.png",height=3.75,width=6,units="in",res=300)
+ggplot(brm1Preds,aes(x=Iteration,y=Probability,color=Group))+
+  geom_path()+xlim(5000,5250)+theme_bw()+
+  scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=170),
+                              rgb(0,0,153,max=255,alpha=170),
+                              rgb(50,190,0,max=255,alpha=200)))
+dev.off()
+
+# PTID 2010 Histogram:
+png(file="ptid2010Hist.png",height=3.75,width=6,units="in",res=300)
+ggplot(brm1Preds,aes(x=Probability,fill=Group,y=..density..))+
+  geom_histogram(bins=45)+facet_wrap(~Group,scales="free_y")+theme_bw()+
+  scale_fill_manual(values=c(rgb(255,51,51,max=255,alpha=255),
+                              rgb(0,0,153,max=255,alpha=255),
+                              rgb(50,190,0,max=255,alpha=255)))+
+  ylab("Density")
+dev.off()
+
 ############ Cross-validation error ############
 set.seed(3)
 cvF<-cvTools::cvFolds(n=nrow(metab2),K=nrow(metab2))
