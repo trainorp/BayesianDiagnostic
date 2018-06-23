@@ -162,7 +162,7 @@ brm1Preds$Group<-factor(brm1Preds$Group,
         levels=levels(brm1Preds$Group)[c(2,3,1)])
 
 # PTID 2010 MCMC
-png(file="ptid2010MCMC.png",height=3.75,width=6,units="in",res=300)
+png(file="ptid2010MCMC.png",height=3.75,width=7,units="in",res=300)
 ggplot(brm1Preds,aes(x=Iteration,y=Probability,color=Group))+
   geom_path()+xlim(5000,5250)+theme_bw()+
   scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=170),
@@ -171,7 +171,7 @@ ggplot(brm1Preds,aes(x=Iteration,y=Probability,color=Group))+
 dev.off()
 
 # PTID 2010 Histogram:
-png(file="ptid2010Hist.png",height=3.75,width=6,units="in",res=300)
+png(file="ptid2010Hist.png",height=3,width=7.5,units="in",res=300)
 ggplot(brm1Preds,aes(x=Probability,fill=Group,y=..density..))+
   geom_histogram(bins=45)+facet_wrap(~Group,scales="free_y")+theme_bw()+
   scale_fill_manual(values=c(rgb(255,51,51,max=255,alpha=255),
