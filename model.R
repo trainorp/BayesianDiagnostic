@@ -55,6 +55,7 @@ metab2<-metab2 %>% left_join(pheno)
 ptm<-proc.time()
 priors<-c(prior(normal(0,1),class=b),
           prior(normal(0,4),class=Intercept))
+set.seed(333)
 brm1<-brm(group~.,data=metab2[,names(metab2)!="ptid"],
           family="categorical",chains=4,iter=10000,algorithm="sampling",
           prior=priors,seed=33)
@@ -83,9 +84,10 @@ coefDf$Group<-factor(coefDf$Group)
 levels(coefDf$Group)<-c("Thrombotic MI","Non-Thrombotic MI")
 coefDf<-coefDf %>% filter(Metabolite!="Intercept")
 coefDf$Metabolite<-key$biochemical[match(coefDf$Metabolite,key$id)]
+write.csv(coefDf,file="coefDf.csv")
 
 # Coefficient forest plot:
-png(file="brm1Coef.png",height=4.5,width=8.5,units="in",res=400)
+png(file="brm1Coef2.png",height=4.5,width=8.5,units="in",res=400)
 ggplot(data=coefDf,aes(x=Metabolite,y=Mean,ymin=`25%`,ymax=`75%`,color=Group))+
   geom_pointrange()+geom_hline(yintercept=0,lty=2)+
   geom_errorbar(aes(ymin=`25%`,ymax=`75%`),width=0.5)+
@@ -199,6 +201,122 @@ for(k in 1:nrow(metab2)){
 names(phenoFolds)[3:5]<-c("sCAD","Type 1 MI","Type 2 MI")
 phenoFolds$Predicted<-names(phenoFolds)[3:5][apply(phenoFolds[,3:5],1,which.max)]
 xtabs(~group+Predicted,data=phenoFolds)
+
+########### Add troponin in: ###########
+oxPL<-read.csv("~/gdrive/Athro/oxPL6/wide_data_20150529.csv")
+trop<-oxPL %>% select(ptid,tropT0)
+trop$ptid<-as.character(trop$ptid)
+metab3<-metab2 %>% left_join(trop)
+
+ptm<-proc.time()
+set.seed(333)
+brm2<-brm(group~.,data=metab3[,names(metab3)!="ptid"],
+          family="categorical",chains=4,iter=10000,algorithm="sampling",
+          prior=priors,seed=33)
+proc.time()-ptm
+
+# Summary and predicted probabilities
+summary(brm2)
+predBrm2<-predict(brm2,newdata=metab3[,!names(metab3)%in%c("group","ptid")])
+predBrm2<-as.data.frame(predBrm2)
+pheno3<-cbind(pheno,predBrm2)
+
+# Shiny stan
+launch_shinystan(brm2)
+
+# Coefficients:
+coefDf50_2<-as.data.frame(posterior_interval(brm2,prob=.50))
+coefDf95_2<-as.data.frame(posterior_interval(brm2,prob=.95))
+coefDfMean_2<-as.data.frame(posterior_summary(brm2))
+coefDfMean_2<-coefDfMean_2 %>% select(Mean=Estimate)
+coefDf_2<-cbind(coefDfMean_2,coefDf50_2,coefDf95_2)
+coefDf_2$Parameter<-rownames(coefDf_2)
+coefDf_2$Metabolite<-str_split(coefDf_2$Parameter,"_",simplify=TRUE)[,3]
+coefDf_2$Group<-gsub("mu","",str_split(coefDf_2$Parameter,"_",simplify=TRUE)[,2])
+coefDf_2<-coefDf_2 %>% filter(Metabolite!="") 
+coefDf_2$Group<-factor(coefDf_2$Group)
+levels(coefDf_2$Group)<-c("Thrombotic MI","Non-Thrombotic MI")
+coefDf_2<-coefDf_2 %>% filter(Metabolite!="Intercept")
+coefDf_2$Metabolite<-key$biochemical[match(coefDf_2$Metabolite,key$id)]
+write.csv(coefDf,file="coefDf_2.csv")
+
+# Coefficient forest plot:
+coefDf_2$Metabolite[is.na(coefDf_2$Metabolite)]<-"Troponin"
+png(file="brm2Coef.png",height=4.5,width=8.5,units="in",res=400)
+ggplot(data=coefDf_2,aes(x=Metabolite,y=Mean,ymin=`25%`,ymax=`75%`,color=Group))+
+  geom_pointrange()+geom_hline(yintercept=0,lty=2)+
+  geom_errorbar(aes(ymin=`25%`,ymax=`75%`),width=0.5)+
+  coord_flip()+theme_bw()+ylab("Estimate")+
+  scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=125),
+                              rgb(0,0,153,max=255,alpha=125)))
+dev.off()
+
+############ Cross-validation error w/ Troponin ############
+set.seed(3)
+cvF<-cvTools::cvFolds(n=nrow(metab3),K=nrow(metab3))
+cvF<-data.frame(fold=cvF$which,id=cvF$subsets)
+
+phenoFolds<-data.frame()
+for(k in 1:nrow(metab3)){
+  brmFold<-brm(group~.,data=metab3[cvF$id[cvF$fold!=k],names(metab3)!="ptid"],
+               family="categorical",chains=4,iter=5000,algorithm="sampling",
+               prior=priors,seed=k+3)
+  print(k)
+  predBrmFold<-predict(brmFold,
+                       newdata=metab3[cvF$id[cvF$fold==k],
+                                      !names(metab3)%in%c("group","ptid")])
+  phenoFold<-cbind(pheno[cvF$id[cvF$fold==k],],predBrmFold)
+  phenoFolds<-rbind(phenoFolds,phenoFold)
+}
+
+names(phenoFolds)[3:5]<-c("sCAD","Type 1 MI","Type 2 MI")
+phenoFolds$Predicted<-names(phenoFolds)[3:5][apply(phenoFolds[,3:5],1,which.max)]
+phenoFolds2<-phenoFolds
+xtabs(~group+Predicted,data=phenoFolds2)
+
+############ Coefficient correlations w/ Troponin ############
+brm2Coefs<-brm2$fit@sim$samples[[1]]
+#brm2Coefs<-brm2Coefs[names(brm2Coefs)!="lp__"]
+
+# Get coefficients from simulated posterior
+brm2Coefs2<-data.frame()
+for(i in 1:length(brm2Coefs)){
+  x<-brm2Coefs[i]
+  brm2Coefs2<-rbind(brm2Coefs2,data.frame(Parameter=names(x),
+                                          iteration=1:length(x[[1]]),Estimate=x[[1]]))
+}
+brm2Coefs3<-brm2Coefs2 %>% spread(key="iteration",value="Estimate")
+tempParams<-brm2Coefs3[,1]
+brm2Coefs3<-t(brm2Coefs3[,-1])
+colnames(brm2Coefs3)<-tempParams
+png(file="corplot.png",height=6,width=6,units="in",res=300)
+corrplot::corrplot(cor(brm2Coefs3))
+dev.off()
+
+plot(brm2Coefs3[,c("b_muType1MI_M25","b_muType1MI_M72")])
+plot(brm2Coefs3[,c("b_muType2MI_M25","b_muType2MI_M72")])
+
+brm2Coefs3<-brm2Coefs3[brm2Coefs3[,'lp__']>-100,]
+png(file="coefPost.png",height=6,width=6,units="in",res=300)
+plot3D::scatter3D(brm2Coefs3[,'b_muType1MI_M25'],brm2Coefs3[,'b_muType1MI_M72'],
+                  brm2Coefs3[,'lp__'],zlim=c(-75,-40),phi=20,theta=30,
+                  xlab="1-linoleoylglycerol (18:2)",ylab="2-linoleoylglycerol (18:2)",
+                  zlab="Log posterior")
+dev.off()
+
+brm2Coefs4<-brm2Coefs2 %>% 
+  filter(Parameter %in% c('iteration','b_muType1MI_M25','b_muType1MI_M72','lp__'))
+brm2Coefs4<-brm2Coefs4 %>% spread(key='Parameter',value='Estimate')
+names(brm2Coefs4)<-c("Iteration","1-linoleoylglycerol (18:2)",
+                     "2-linoleoylglycerol (18:2)","Log posterior")
+
+png(file="coefPost2.png",height=4,width=6,units="in",res=300)
+ggplot(brm2Coefs4 %>% filter(`Log posterior`>-100) %>% sample_frac(.75),
+       aes(x=`1-linoleoylglycerol (18:2)`,y=`2-linoleoylglycerol (18:2)`,
+                      color=`Log posterior`))+
+  geom_point(size=.5)+theme_bw()+scale_color_gradient2(high="red",mid="purple",
+                                      low="blue",midpoint=-60)
+dev.off()
 
 ########### Horseshoe prior LDA ###########
 metab3<-model.matrix(~group,data=metab2)[,2:3]
