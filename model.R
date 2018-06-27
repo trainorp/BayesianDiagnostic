@@ -84,17 +84,17 @@ coefDf$Group<-factor(coefDf$Group)
 levels(coefDf$Group)<-c("Thrombotic MI","Non-Thrombotic MI")
 coefDf<-coefDf %>% filter(Metabolite!="Intercept")
 coefDf$Metabolite<-key$biochemical[match(coefDf$Metabolite,key$id)]
-write.csv(coefDf,file="coefDf.csv")
+# write.csv(coefDf,file="coefDf.csv")
 
 # Coefficient forest plot:
-png(file="brm1Coef2.png",height=4.5,width=8.5,units="in",res=400)
+# png(file="brm1Coef2.png",height=4.5,width=8.5,units="in",res=400)
 ggplot(data=coefDf,aes(x=Metabolite,y=Mean,ymin=`25%`,ymax=`75%`,color=Group))+
   geom_pointrange()+geom_hline(yintercept=0,lty=2)+
   geom_errorbar(aes(ymin=`25%`,ymax=`75%`),width=0.5)+
   coord_flip()+theme_bw()+ylab("Estimate")+
   scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=125),
         rgb(0,0,153,max=255,alpha=125)))
-dev.off()
+# dev.off()
 
 # MCMC chain:
 exMCMCChain<-rbind(data.frame(Value=brm1$fit@sim$samples[[1]]$b_muType1MI_M110,
@@ -103,21 +103,21 @@ exMCMCChain<-rbind(data.frame(Value=brm1$fit@sim$samples[[1]]$b_muType1MI_M110,
                  Iteration=1:10000,Group="Non-Thrombotic MI"))
 exMCMCChain$Group<-factor(exMCMCChain$Group,levels=c("Thrombotic MI","Non-Thrombotic MI"))
 
-png(file="exMCMCChain.png",height=4,width=6,units="in",res=300)
+# png(file="exMCMCChain.png",height=4,width=6,units="in",res=300)
 ggplot(exMCMCChain,aes(x=Iteration,y=Value,color=Group))+
   geom_path()+geom_hline(yintercept=0,lty=2)+
   scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=150),
                                           rgb(0,0,153,max=255,alpha=150)))+
   theme_bw()+xlim(5000,7000)+ylim(-2.5,3.5)
-dev.off()
+# dev.off()
 
-png(file="exHist.png",height=4,width=4,units="in",res=300)
+# png(file="exHist.png",height=4,width=4,units="in",res=300)
 ggplot(exMCMCChain,aes(x=Value,fill=Group))+geom_density(alpha=.3)+
   theme_bw()+ylab("Density")+
   scale_fill_manual(values=c(rgb(255,51,51,max=255,alpha=150),
                               rgb(0,0,153,max=255,alpha=150)))+
   coord_flip()
-dev.off()
+# dev.off()
 
 ############ Posterior predictive distribution ############
 brm1Coefs<-brm1$fit@sim$samples[[1]]
@@ -164,23 +164,23 @@ brm1Preds$Group<-factor(brm1Preds$Group,
         levels=levels(brm1Preds$Group)[c(2,3,1)])
 
 # PTID 2010 MCMC
-png(file="ptid2010MCMC.png",height=3.75,width=7,units="in",res=300)
+# png(file="ptid2010MCMC.png",height=3.75,width=7,units="in",res=300)
 ggplot(brm1Preds,aes(x=Iteration,y=Probability,color=Group))+
   geom_path()+xlim(5000,5250)+theme_bw()+
   scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=170),
                               rgb(0,0,153,max=255,alpha=170),
                               rgb(50,190,0,max=255,alpha=200)))
-dev.off()
+# dev.off()
 
 # PTID 2010 Histogram:
-png(file="ptid2010Hist.png",height=3,width=7.5,units="in",res=300)
+# png(file="ptid2010Hist.png",height=3,width=7.5,units="in",res=300)
 ggplot(brm1Preds,aes(x=Probability,fill=Group,y=..density..))+
   geom_histogram(bins=45)+facet_wrap(~Group,scales="free_y")+theme_bw()+
   scale_fill_manual(values=c(rgb(255,51,51,max=255,alpha=255),
                               rgb(0,0,153,max=255,alpha=255),
                               rgb(50,190,0,max=255,alpha=255)))+
   ylab("Density")
-dev.off()
+# dev.off()
 
 ############ Cross-validation error ############
 set.seed(3)
@@ -196,6 +196,7 @@ for(k in 1:nrow(metab2)){
             newdata=metab2[cvF$id[cvF$fold==k],!names(metab2)%in%c("group","ptid")])
   phenoFold<-cbind(pheno[cvF$id[cvF$fold==k],],predBrmFold)
   phenoFolds<-rbind(phenoFolds,phenoFold)
+  print(k)
 }
 
 names(phenoFolds)[3:5]<-c("sCAD","Type 1 MI","Type 2 MI")
@@ -238,25 +239,28 @@ coefDf_2$Group<-factor(coefDf_2$Group)
 levels(coefDf_2$Group)<-c("Thrombotic MI","Non-Thrombotic MI")
 coefDf_2<-coefDf_2 %>% filter(Metabolite!="Intercept")
 coefDf_2$Metabolite<-key$biochemical[match(coefDf_2$Metabolite,key$id)]
-write.csv(coefDf,file="coefDf_2.csv")
+# write.csv(coefDf,file="coefDf_2.csv")
 
 # Coefficient forest plot:
 coefDf_2$Metabolite[is.na(coefDf_2$Metabolite)]<-"Troponin"
-png(file="brm2Coef.png",height=4.5,width=8.5,units="in",res=400)
+# png(file="brm2Coef.png",height=4.5,width=8.5,units="in",res=400)
 ggplot(data=coefDf_2,aes(x=Metabolite,y=Mean,ymin=`25%`,ymax=`75%`,color=Group))+
   geom_pointrange()+geom_hline(yintercept=0,lty=2)+
   geom_errorbar(aes(ymin=`25%`,ymax=`75%`),width=0.5)+
   coord_flip()+theme_bw()+ylab("Estimate")+
   scale_color_manual(values=c(rgb(255,51,51,max=255,alpha=125),
                               rgb(0,0,153,max=255,alpha=125)))
-dev.off()
+# dev.off()
+
+# Model comparison
+compare_ic(WAIC(brm1),WAIC(brm2))
 
 ############ Cross-validation error w/ Troponin ############
 set.seed(3)
 cvF<-cvTools::cvFolds(n=nrow(metab3),K=nrow(metab3))
 cvF<-data.frame(fold=cvF$which,id=cvF$subsets)
 
-phenoFolds<-data.frame()
+phenoFolds2<-data.frame()
 for(k in 1:nrow(metab3)){
   brmFold<-brm(group~.,data=metab3[cvF$id[cvF$fold!=k],names(metab3)!="ptid"],
                family="categorical",chains=4,iter=5000,algorithm="sampling",
@@ -265,14 +269,23 @@ for(k in 1:nrow(metab3)){
   predBrmFold<-predict(brmFold,
                        newdata=metab3[cvF$id[cvF$fold==k],
                                       !names(metab3)%in%c("group","ptid")])
-  phenoFold<-cbind(pheno[cvF$id[cvF$fold==k],],predBrmFold)
-  phenoFolds<-rbind(phenoFolds,phenoFold)
+  phenoFold2<-cbind(pheno[cvF$id[cvF$fold==k],],predBrmFold)
+  phenoFolds2<-rbind(phenoFolds2,phenoFold2)
 }
 
-names(phenoFolds)[3:5]<-c("sCAD","Type 1 MI","Type 2 MI")
-phenoFolds$Predicted<-names(phenoFolds)[3:5][apply(phenoFolds[,3:5],1,which.max)]
-phenoFolds2<-phenoFolds
+names(phenoFolds2)[3:5]<-c("sCAD","Type 1 MI","Type 2 MI")
+phenoFolds2$Predicted<-names(phenoFolds2)[3:5][apply(phenoFolds2[,3:5],1,which.max)]
 xtabs(~group+Predicted,data=phenoFolds2)
+
+############ Combined probability estimates ############
+names(phenoFolds)[names(phenoFolds) %in% c("sCAD","Type 1 MI","Type 2 MI")]<-
+  paste0(names(phenoFolds)[names(phenoFolds) %in% c("sCAD","Type 1 MI","Type 2 MI")],"_1")
+
+names(phenoFolds2)[names(phenoFolds2) %in% c("sCAD","Type 1 MI","Type 2 MI")]<-
+  paste0(names(phenoFolds2)[names(phenoFolds2) %in% c("sCAD","Type 1 MI","Type 2 MI")],"_2")
+
+phenoFolds3<-phenoFolds %>% left_join(phenoFolds2,by=c("ptid"))
+# write.csv(phenoFolds3,file="phenoFolds.csv")
 
 ############ Coefficient correlations w/ Troponin ############
 brm2Coefs<-brm2$fit@sim$samples[[1]]
@@ -289,20 +302,20 @@ brm2Coefs3<-brm2Coefs2 %>% spread(key="iteration",value="Estimate")
 tempParams<-brm2Coefs3[,1]
 brm2Coefs3<-t(brm2Coefs3[,-1])
 colnames(brm2Coefs3)<-tempParams
-png(file="corplot.png",height=6,width=6,units="in",res=300)
+# png(file="corplot.png",height=6,width=6,units="in",res=300)
 corrplot::corrplot(cor(brm2Coefs3))
-dev.off()
+# dev.off()
 
 plot(brm2Coefs3[,c("b_muType1MI_M25","b_muType1MI_M72")])
 plot(brm2Coefs3[,c("b_muType2MI_M25","b_muType2MI_M72")])
 
 brm2Coefs3<-brm2Coefs3[brm2Coefs3[,'lp__']>-100,]
-png(file="coefPost.png",height=6,width=6,units="in",res=300)
+# png(file="coefPost.png",height=6,width=6,units="in",res=300)
 plot3D::scatter3D(brm2Coefs3[,'b_muType1MI_M25'],brm2Coefs3[,'b_muType1MI_M72'],
                   brm2Coefs3[,'lp__'],zlim=c(-75,-40),phi=20,theta=30,
                   xlab="1-linoleoylglycerol (18:2)",ylab="2-linoleoylglycerol (18:2)",
                   zlab="Log posterior")
-dev.off()
+# dev.off()
 
 brm2Coefs4<-brm2Coefs2 %>% 
   filter(Parameter %in% c('iteration','b_muType1MI_M25','b_muType1MI_M72','lp__'))
@@ -310,13 +323,13 @@ brm2Coefs4<-brm2Coefs4 %>% spread(key='Parameter',value='Estimate')
 names(brm2Coefs4)<-c("Iteration","1-linoleoylglycerol (18:2)",
                      "2-linoleoylglycerol (18:2)","Log posterior")
 
-png(file="coefPost2.png",height=4,width=6,units="in",res=300)
+# png(file="coefPost2.png",height=4,width=6,units="in",res=300)
 ggplot(brm2Coefs4 %>% filter(`Log posterior`>-100) %>% sample_frac(.75),
        aes(x=`1-linoleoylglycerol (18:2)`,y=`2-linoleoylglycerol (18:2)`,
                       color=`Log posterior`))+
   geom_point(size=.5)+theme_bw()+scale_color_gradient2(high="red",mid="purple",
                                       low="blue",midpoint=-60)
-dev.off()
+# dev.off()
 
 ########### Horseshoe prior LDA ###########
 metab3<-model.matrix(~group,data=metab2)[,2:3]
