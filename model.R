@@ -119,6 +119,11 @@ ggplot(exMCMCChain,aes(x=Value,fill=Group))+geom_density(alpha=.3)+
   coord_flip()
 # dev.off()
 
+############ Frequentist model ############
+freqModel<-nnet::multinom(group~.,
+                          data=metab2[,names(metab2)!="ptid"])
+summary(freqModel)
+
 ############ Posterior predictive distribution ############
 brm1Coefs<-brm1$fit@sim$samples[[1]]
 brm1Coefs<-brm1Coefs[names(brm1Coefs)!="lp__"]
@@ -187,21 +192,31 @@ set.seed(3)
 cvF<-cvTools::cvFolds(n=nrow(metab2),K=nrow(metab2))
 cvF<-data.frame(fold=cvF$which,id=cvF$subsets)
 
-phenoFolds<-data.frame()
+phenoFoldsFreq<-phenoFolds<-data.frame()
 for(k in 1:nrow(metab2)){
   brmFold<-brm(group~.,data=metab2[cvF$id[cvF$fold!=k],names(metab2)!="ptid"],
                family="categorical",chains=4,iter=5000,algorithm="sampling",
                prior=priors,seed=k+3)
+  brmFoldFreq<-nnet::multinom(group~.,
+                data=metab2[cvF$id[cvF$fold!=k],names(metab2)!="ptid"])
   predBrmFold<-predict(brmFold,
             newdata=metab2[cvF$id[cvF$fold==k],!names(metab2)%in%c("group","ptid")])
+  predBrmFoldFreq<-predict(brmFoldFreq,
+            newdata=metab2[cvF$id[cvF$fold==k],!names(metab2)%in%c("group","ptid")],
+            type="probs")
   phenoFold<-cbind(pheno[cvF$id[cvF$fold==k],],predBrmFold)
+  phenoFoldFreq<-cbind(pheno[cvF$id[cvF$fold==k],],as.data.frame(t(predBrmFoldFreq)))
   phenoFolds<-rbind(phenoFolds,phenoFold)
+  phenoFoldsFreq<-rbind(phenoFoldsFreq,phenoFoldFreq)
   print(k)
 }
 
 names(phenoFolds)[3:5]<-c("sCAD","Type 1 MI","Type 2 MI")
+names(phenoFoldsFreq)[3:5]<-c("sCAD","Type 1 MI","Type 2 MI")
 phenoFolds$Predicted<-names(phenoFolds)[3:5][apply(phenoFolds[,3:5],1,which.max)]
+phenoFoldsFreq$Predicted<-names(phenoFoldsFreq)[3:5][apply(phenoFoldsFreq[,3:5],1,which.max)]
 xtabs(~group+Predicted,data=phenoFolds)
+xtabs(~group+Predicted,data=phenoFoldsFreq)
 
 ########### Add troponin in: ###########
 oxPL<-read.csv("~/gdrive/Athro/oxPL6/wide_data_20150529.csv")
