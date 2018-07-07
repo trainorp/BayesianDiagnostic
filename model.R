@@ -67,7 +67,8 @@ sc1<-make_stancode(group~.,data=metab2[,names(metab2)!="ptid"],
 sd1<-make_standata(group~.,data=metab2[,names(metab2)!="ptid"],
               family="categorical",chains=4,iter=10000,algorithm="sampling",
               prior=priors,seed=33)
-stan(model_code=sc1,data=sd1)
+myBRM1<-stan(file="myStan.stan",data=sd1)
+myBRM2<-stan(file="myStan2.stan",data=sd1)
 
 # Summary and predicted probabilities
 summary(brm1)
