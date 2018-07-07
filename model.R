@@ -61,6 +61,14 @@ brm1<-brm(group~.,data=metab2[,names(metab2)!="ptid"],
           prior=priors,seed=33)
 proc.time()-ptm
 
+sc1<-make_stancode(group~.,data=metab2[,names(metab2)!="ptid"],
+              family="categorical",chains=4,iter=10000,algorithm="sampling",
+              prior=priors,seed=33)
+sd1<-make_standata(group~.,data=metab2[,names(metab2)!="ptid"],
+              family="categorical",chains=4,iter=10000,algorithm="sampling",
+              prior=priors,seed=33)
+stan(model_code=sc1,data=sd1)
+
 # Summary and predicted probabilities
 summary(brm1)
 predBrm1<-predict(brm1,newdata=metab2[,!names(metab2)%in%c("group","ptid")])
