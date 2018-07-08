@@ -31,7 +31,7 @@ parameters {
   real temp_muType1MI_Intercept;  // temporary intercept 
   vector[Kc_muType2MI] b_muType2MI;  // population-level effects 
   real temp_muType2MI_Intercept;  // temporary intercept
-  vector[Kc_muType1MI] lambda;
+  vector<lower=0>[Kc_muType1MI] lambda;
   real<lower=0> tau; 
 } 
 transformed parameters { 
@@ -46,8 +46,9 @@ model {
   } 
   // priors including all constants
   lambda ~ cauchy(0, 1);
-  tau ~ cauchy(0, 1); 
-  b_muType1MI ~ normal(0, 1); 
+  tau ~ cauchy(0, 1);
+  for(j in 1:Kc_muType1MI)
+    b_muType1MI[j] ~ normal(0, lambda[j] * tau); 
   temp_muType1MI_Intercept ~ normal(0, 4); 
   b_muType2MI ~ normal(0, 1); 
   temp_muType2MI_Intercept ~ normal(0, 4); 
