@@ -69,6 +69,7 @@ sd1<-make_standata(group~.,data=metab2[,names(metab2)!="ptid"],
               prior=priors,seed=33)
 myBRM1<-stan(file="myStan.stan",data=sd1)
 myBRM2<-stan(file="myStan2.stan",data=sd1)
+myBRM3<-stan(file="myStan3.stan",data=sd1)
 
 # Summary and predicted probabilities
 summary(brm1)
